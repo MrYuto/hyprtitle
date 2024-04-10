@@ -97,7 +97,10 @@ impl Hyprtitle {
         let mut position_text = String::new();
 
         if let Some(active_window) = self.active_window.as_ref() {
-            if active_window.pinned {
+            if active_window.xwayland {
+                title_icon = " "
+            }
+            else if active_window.pinned {
                 title_icon = " "
             } else if active_window.floating {
                 title_icon = "󰨦 "
