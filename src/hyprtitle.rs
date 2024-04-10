@@ -1,6 +1,8 @@
+use std::sync::{Arc, Mutex};
 use hyprland::data::*;
+use hyprland::event_listener::EventListener;
 use hyprland::prelude::*;
-use hyprland::shared::WorkspaceId;
+use hyprland::shared::{WorkspaceId, WorkspaceType};
 use serde_json::json;
 
 const WORKSPACE_ICON: &str = " ";
@@ -13,7 +15,7 @@ const WINDOW_CLASS_ICON: &str = " ";
 const WINDOW_SIZE_ICON: &str = "󰳂 ";
 const WINDOW_POSITION_ICON: &str = " ";
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct WorkspaceInfo {
     pub id: Option<WorkspaceId>,
     pub name: Option<String>,
@@ -45,53 +47,59 @@ impl Default for Hyprtitle {
 }
 
 impl Hyprtitle {
-    pub fn new(workspace_name: Option<String>) -> Self {
+    pub fn new() -> Self {
         let mut hyprtitle = Hyprtitle::default();
-
-        if let Some(name) = workspace_name {
-            hyprtitle.workspace_info.name = Some(name)
-        }
-
-        hyprtitle.update();
+        hyprtitle.update(None);
         hyprtitle
     }
 
-    pub fn update(&mut self) {
+    pub fn update(&mut self, workspace_name: Option<String>) -> &Self {
         let active_window = Client::get_active().unwrap();
-        let mut workspace_info = self.workspace_info.clone();
+        let mut workspaces = Workspaces::get().unwrap().to_vec().into_iter();
+
+        let mut workspace = if let Some(name) = workspace_name {
+            workspaces.clone().find(|workspace| workspace.name == name)
+        } else {
+            None
+        };
 
         if let Some(active_window) = &active_window {
-            workspace_info = WorkspaceInfo {
+            self.workspace_info = WorkspaceInfo {
                 id: Some(active_window.workspace.id),
                 name: Some(active_window.workspace.name.clone()),
             };
         }
 
-        let mut workspaces = Workspaces::get().unwrap().to_vec().into_iter();
-
-        let workspace = if let Some(id) = workspace_info.id {
-            workspaces.find(|workspace| workspace.id == id)
-        } else if let Some(name) = workspace_info.name.as_ref() {
-            workspaces.find(|workspace| &workspace.name == name)
-        } else {
-            None
-        };
+        if workspace.is_none() || active_window.is_some() {
+            workspace = if let Some(id) = self.workspace_info.id {
+                workspaces.find(|workspace| workspace.id == id)
+            } else if let Some(name) = self.workspace_info.name.as_ref() {
+                workspaces.find(|workspace| &workspace.name == name)
+            } else {
+                None
+            };
+        }
 
         let mut windows = None;
 
         if let Some(workspace) = workspace {
+            self.workspace_info = WorkspaceInfo {
+                id: Some(workspace.id),
+                name: Some(workspace.name),
+            };
+
             windows = Some(workspace.windows);
         }
 
         self.windows = windows;
         self.active_window = active_window;
-        self.workspace_info = workspace_info;
+        self
     }
 
     pub fn print(&self) {
-        let windows = WINDOW_COUNT_ICON.to_string() + self.windows.unwrap_or(0).to_string().as_ref();
+        let windows =
+            WINDOW_COUNT_ICON.to_string() + self.windows.unwrap_or(0).to_string().as_ref();
         let workspace_id_text = self.workspace_info.id.unwrap_or(0).to_string();
-
         let workspace_text = self
             .workspace_info
             .name
@@ -124,7 +132,6 @@ impl Hyprtitle {
         let class = WINDOW_CLASS_ICON.to_string() + class_text;
         let size = WINDOW_SIZE_ICON.to_string() + &size_text;
         let position = WINDOW_POSITION_ICON.to_string() + &position_text;
-
         let data = json!({
         "alt": "",
         "class": "",
@@ -135,8 +142,46 @@ impl Hyprtitle {
 
         println!("{data}");
     }
-}
 
-pub fn print_hyprtitle(workspace_name: Option<String>) {
-    Hyprtitle::new(workspace_name).print();
+    pub fn start(self) {
+        let mut listener = EventListener::new();
+        let hyprtitle: Arc<Mutex<_>> = Arc::new(Mutex::new(self));
+
+        let workspace_handler = {
+            let hyprtitle = Arc::clone(&hyprtitle);
+
+            move |workspace_type| {
+                let mut hyprtitle = hyprtitle.lock().unwrap();
+                let workspace_name = match workspace_type {
+                    WorkspaceType::Regular(name) => Some(name),
+                    WorkspaceType::Special(name) => name,
+                };
+
+                hyprtitle.update(workspace_name).print();
+            }
+        };
+
+        listener.add_workspace_change_handler(workspace_handler.clone());
+
+        // TODO: Add this after hyprland-rs support v2 events
+        // listener.add_workspace_destroy_handler(workspace_handler.clone());
+
+        macro_rules! window_handler {
+            ($hyprtitle:expr) => {{
+                let hyprtitle = Arc::clone(&$hyprtitle);
+                move |_| {
+                    let mut hyprtitle = hyprtitle.lock().unwrap();
+                    hyprtitle.update(None).print();
+                }
+            }};
+        }
+
+        listener.add_window_close_handler(window_handler!(hyprtitle));
+        listener.add_window_open_handler(window_handler!(hyprtitle));
+        listener.add_window_moved_handler(window_handler!(hyprtitle));
+        listener.add_window_title_change_handler(window_handler!(hyprtitle));
+        listener.add_active_window_change_handler(window_handler!(hyprtitle));
+        hyprtitle.lock().unwrap().update(None).print();
+        listener.start_listener().unwrap();
+    }
 }
