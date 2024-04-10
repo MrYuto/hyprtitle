@@ -73,7 +73,6 @@ fn main() {
                 }
             }
         }
-
         return;
     }
 
@@ -113,7 +112,6 @@ fn main() {
     listener.add_window_moved_handler(|_| print_hyprtitle(None));
     listener.add_window_title_change_handler(|_| print_hyprtitle(None));
     listener.add_active_window_change_handler(|_| print_hyprtitle(None));
-
     print_hyprtitle(None);
     listener.start_listener().unwrap();
 }

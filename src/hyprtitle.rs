@@ -3,6 +3,16 @@ use hyprland::prelude::*;
 use hyprland::shared::WorkspaceId;
 use serde_json::json;
 
+const WORKSPACE_ICON: &str = " ";
+const WINDOW_COUNT_ICON: &str = " ";
+const NORMAL_WINDOW_ICON: &str = " ";
+const XWAYLAND_WINDOW_ICON: &str = " ";
+const PINNED_WINDOW_ICON: &str = " ";
+const FLOATING_WINDOW_ICON: &str = "󰨦 ";
+const WINDOW_CLASS_ICON: &str = " ";
+const WINDOW_SIZE_ICON: &str = "󰳂 ";
+const WINDOW_POSITION_ICON: &str = " ";
+
 #[derive(Clone)]
 pub struct WorkspaceInfo {
     pub id: Option<WorkspaceId>,
@@ -79,7 +89,7 @@ impl Hyprtitle {
     }
 
     pub fn print(&self) {
-        let windows = String::from(" ") + self.windows.unwrap_or(0).to_string().as_ref();
+        let windows = WINDOW_COUNT_ICON.to_string() + self.windows.unwrap_or(0).to_string().as_ref();
         let workspace_id_text = self.workspace_info.id.unwrap_or(0).to_string();
 
         let workspace_text = self
@@ -88,9 +98,8 @@ impl Hyprtitle {
             .as_ref()
             .unwrap_or(&workspace_id_text);
 
-        let workspace = String::from(" ") + workspace_text;
-
-        let mut title_icon = " ";
+        let workspace = WORKSPACE_ICON.to_string() + workspace_text;
+        let mut title_icon = NORMAL_WINDOW_ICON;
         let mut title_text = "";
         let mut class_text = "";
         let mut size_text = String::new();
@@ -98,12 +107,11 @@ impl Hyprtitle {
 
         if let Some(active_window) = self.active_window.as_ref() {
             if active_window.xwayland {
-                title_icon = " "
-            }
-            else if active_window.pinned {
-                title_icon = " "
+                title_icon = XWAYLAND_WINDOW_ICON
+            } else if active_window.pinned {
+                title_icon = PINNED_WINDOW_ICON
             } else if active_window.floating {
-                title_icon = "󰨦 "
+                title_icon = FLOATING_WINDOW_ICON
             }
 
             title_text = &active_window.title;
@@ -113,9 +121,9 @@ impl Hyprtitle {
         }
 
         let title = title_icon.to_string() + title_text;
-        let class = String::from(" ") + class_text;
-        let size = String::from("󰳂 ") + &size_text;
-        let position = String::from(" ") + &position_text;
+        let class = WINDOW_CLASS_ICON.to_string() + class_text;
+        let size = WINDOW_SIZE_ICON.to_string() + &size_text;
+        let position = WINDOW_POSITION_ICON.to_string() + &position_text;
 
         let data = json!({
         "alt": "",
