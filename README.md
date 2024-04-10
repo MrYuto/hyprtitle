@@ -9,8 +9,8 @@ A simple Hyprland title bar module for Waybar.
 ## Features
 
 - Active workspace details
-  - name
-  - Windows count
+  - Name
+  - Window count
 - Active window details
   - Title
   - Class
@@ -18,6 +18,7 @@ A simple Hyprland title bar module for Waybar.
   - Position
   - Pinned
   - Floating
+  - Xwayland
 - Copy to clipboard using `wl-copy`
 
 ## Installation
