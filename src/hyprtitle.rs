@@ -1,9 +1,10 @@
-use std::sync::{Arc, Mutex};
 use hyprland::data::*;
 use hyprland::event_listener::EventListener;
 use hyprland::prelude::*;
 use hyprland::shared::{WorkspaceId, WorkspaceType};
 use serde_json::json;
+use std::cell::RefCell;
+use std::rc::Rc;
 
 const WORKSPACE_ICON: &str = " ";
 const WINDOW_COUNT_ICON: &str = " ";
@@ -145,13 +146,13 @@ impl Hyprtitle {
 
     pub fn start(self) {
         let mut listener = EventListener::new();
-        let hyprtitle: Arc<Mutex<_>> = Arc::new(Mutex::new(self));
+        let hyprtitle: Rc<RefCell<_>> = Rc::new(RefCell::new(self));
 
         let workspace_handler = {
-            let hyprtitle = Arc::clone(&hyprtitle);
+            let hyprtitle = hyprtitle.clone();
 
             move |workspace_type| {
-                let mut hyprtitle = hyprtitle.lock().unwrap();
+                let mut hyprtitle = hyprtitle.borrow_mut();
                 let workspace_name = match workspace_type {
                     WorkspaceType::Regular(name) => Some(name),
                     WorkspaceType::Special(name) => name,
@@ -168,9 +169,9 @@ impl Hyprtitle {
 
         macro_rules! window_handler {
             ($hyprtitle:expr) => {{
-                let hyprtitle = Arc::clone(&$hyprtitle);
+                let hyprtitle = hyprtitle.clone();
                 move |_| {
-                    let mut hyprtitle = hyprtitle.lock().unwrap();
+                    let mut hyprtitle = hyprtitle.borrow_mut();
                     hyprtitle.update(None).print();
                 }
             }};
@@ -181,7 +182,7 @@ impl Hyprtitle {
         listener.add_window_moved_handler(window_handler!(hyprtitle));
         listener.add_window_title_change_handler(window_handler!(hyprtitle));
         listener.add_active_window_change_handler(window_handler!(hyprtitle));
-        hyprtitle.lock().unwrap().update(None).print();
+        hyprtitle.borrow_mut().update(None).print();
         listener.start_listener().unwrap();
     }
 }
