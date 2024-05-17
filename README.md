@@ -4,8 +4,6 @@ A simple Hyprland title bar module for Waybar.
 
 ![hyprtitle](./assets/hyprtitle_01.png)
 
-![hyprtitle tooltip](./assets/hyprtitle_02.png)
-
 ## Features
 
 - Active workspace details

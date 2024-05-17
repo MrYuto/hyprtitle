@@ -31,6 +31,7 @@ impl Default for WorkspaceInfo {
     }
 }
 
+#[derive(Debug)]
 pub struct Hyprtitle {
     pub windows: Option<u16>,
     pub active_window: Option<Client>,
@@ -98,8 +99,6 @@ impl Hyprtitle {
     }
 
     pub fn print(&self) {
-        let windows =
-            WINDOW_COUNT_ICON.to_string() + self.windows.unwrap_or(0).to_string().as_ref();
         let workspace_id_text = self.workspace_info.id.unwrap_or(0).to_string();
         let workspace_text = self
             .workspace_info
@@ -108,13 +107,22 @@ impl Hyprtitle {
             .unwrap_or(&workspace_id_text);
 
         let workspace = WORKSPACE_ICON.to_string() + workspace_text;
-        let mut title_icon = NORMAL_WINDOW_ICON;
-        let mut title_text = "";
-        let mut class_text = "";
-        let mut size_text = String::new();
-        let mut position_text = String::new();
+        let window_count = self.windows.unwrap_or(0);
+
+        let windows = if window_count == 0 {
+            String::new()
+        } else {
+            WINDOW_COUNT_ICON.to_string() + window_count.to_string().as_ref()
+        };
+
+        let mut title = String::new();
+        let mut class = String::new();
+        let mut size = String::new();
+        let mut position = String::new();
 
         if let Some(active_window) = self.active_window.as_ref() {
+            let mut title_icon = NORMAL_WINDOW_ICON;
+
             if active_window.xwayland {
                 title_icon = XWAYLAND_WINDOW_ICON
             } else if active_window.pinned {
@@ -123,22 +131,22 @@ impl Hyprtitle {
                 title_icon = FLOATING_WINDOW_ICON
             }
 
-            title_text = &active_window.title;
-            class_text = &active_window.class;
-            position_text = format!("{}x{}", active_window.at.0, active_window.at.1);
-            size_text = format!("{}x{}", active_window.size.0, active_window.size.1);
+            title = title_icon.to_string() + active_window.title.as_ref();
+            class = WINDOW_CLASS_ICON.to_string() + active_window.class.as_ref();
+
+            position = WINDOW_POSITION_ICON.to_string()
+                + format!("{}x{}", active_window.at.0, active_window.at.1).as_ref();
+
+            size = WINDOW_SIZE_ICON.to_string()
+                + format!("{}x{}", active_window.size.0, active_window.size.1).as_ref();
         }
 
-        let title = title_icon.to_string() + title_text;
-        let class = WINDOW_CLASS_ICON.to_string() + class_text;
-        let size = WINDOW_SIZE_ICON.to_string() + &size_text;
-        let position = WINDOW_POSITION_ICON.to_string() + &position_text;
         let data = json!({
         "alt": "",
         "class": "",
         "percentage": 0,
-        "tooltip": format!("{class}\n{position} {size}\n{title}"),
-        "text": format!("{workspace} {windows} {title}"),
+        "tooltip": format!("{class}\n{position} {size}\n{title}").trim(),
+        "text": format!("{workspace} {windows} {title}").trim(),
         });
 
         println!("{data}");
@@ -163,9 +171,6 @@ impl Hyprtitle {
         };
 
         listener.add_workspace_change_handler(workspace_handler.clone());
-
-        // TODO: Add this after hyprland-rs support v2 events
-        // listener.add_workspace_destroy_handler(workspace_handler.clone());
 
         macro_rules! window_handler {
             ($hyprtitle:expr) => {{
