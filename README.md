@@ -8,6 +8,8 @@ A simple Hyprland title bar module for Waybar.
 
 - Active workspace details
   - Name
+- Active group details
+  - Active window index
   - Window count
 - Active window details
   - Title
