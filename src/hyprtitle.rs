@@ -18,34 +18,16 @@ const WINDOW_CLASS_ICON: &str = " ";
 const WINDOW_SIZE_ICON: &str = "󰳂 ";
 const WINDOW_POSITION_ICON: &str = " ";
 
-#[derive(Clone, Debug)]
+#[derive(Debug, Default, Clone)]
 pub struct WorkspaceInfo {
     pub id: Option<WorkspaceId>,
     pub name: Option<String>,
 }
 
-impl Default for WorkspaceInfo {
-    fn default() -> Self {
-        Self {
-            id: Default::default(),
-            name: Default::default(),
-        }
-    }
-}
-
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Hyprtitle {
     pub active_window: Option<Client>,
     pub workspace_info: WorkspaceInfo,
-}
-
-impl Default for Hyprtitle {
-    fn default() -> Self {
-        Self {
-            active_window: Default::default(),
-            workspace_info: Default::default(),
-        }
-    }
 }
 
 impl Hyprtitle {
@@ -57,31 +39,26 @@ impl Hyprtitle {
 
     pub fn update(&mut self, workspace_name: Option<String>) -> &Self {
         let active_window = Client::get_active().unwrap();
-        let mut workspaces = Workspaces::get().unwrap().to_vec().into_iter();
-
-        let mut workspace = if let Some(name) = workspace_name {
-            workspaces.clone().find(|workspace| workspace.name == name)
-        } else {
-            None
-        };
-
-        if let Some(active_window) = &active_window {
+        if let Some(active_window) = active_window {
             self.workspace_info = WorkspaceInfo {
                 id: Some(active_window.workspace.id),
                 name: Some(active_window.workspace.name.clone()),
             };
+
+            self.active_window = Some(active_window);
+            return self;
+        } else {
+            self.active_window = None;
         }
 
-        if workspace.is_none() || active_window.is_some() {
-            workspace = if let Some(id) = self.workspace_info.id {
-                workspaces.find(|workspace| workspace.id == id)
-            } else if let Some(name) = self.workspace_info.name.as_ref() {
-                workspaces.find(|workspace| &workspace.name == name)
-            } else {
-                None
-            };
-        }
-
+        let workspace = if let Some(name) = workspace_name {
+            let workspaces = Workspaces::get().unwrap();
+            workspaces
+                .into_iter()
+                .find(|workspace| workspace.name == name)
+        } else {
+            None
+        };
         if let Some(workspace) = workspace {
             self.workspace_info = WorkspaceInfo {
                 id: Some(workspace.id),
@@ -89,7 +66,6 @@ impl Hyprtitle {
             };
         }
 
-        self.active_window = active_window;
         self
     }
 
@@ -166,25 +142,21 @@ impl Hyprtitle {
         let mut listener = EventListener::new();
         let hyprtitle: Rc<RefCell<_>> = Rc::new(RefCell::new(self));
 
-        let workspace_handler = {
-            let hyprtitle = hyprtitle.clone();
-
+        listener.add_workspace_changed_handler({
+            let hyprtitle = Rc::clone(&hyprtitle);
             move |workspace: WorkspaceEventData| {
                 let mut hyprtitle = hyprtitle.borrow_mut();
                 let workspace_name = match workspace.name {
                     WorkspaceType::Regular(name) => Some(name),
                     WorkspaceType::Special(name) => name,
                 };
-
                 hyprtitle.update(workspace_name).print();
             }
-        };
-
-        listener.add_workspace_changed_handler(workspace_handler.clone());
+        });
 
         macro_rules! window_handler {
-            ($hyprtitle:expr) => {{
-                let hyprtitle = hyprtitle.clone();
+            () => {{
+                let hyprtitle = Rc::clone(&hyprtitle);
                 move |_| {
                     let mut hyprtitle = hyprtitle.borrow_mut();
                     hyprtitle.update(None).print();
@@ -192,17 +164,17 @@ impl Hyprtitle {
             }};
         }
 
-        listener.add_active_window_changed_handler(window_handler!(hyprtitle));
-        listener.add_float_state_changed_handler(window_handler!(hyprtitle));
-        listener.add_fullscreen_state_changed_handler(window_handler!(hyprtitle));
-        listener.add_group_toggled_handler(window_handler!(hyprtitle));
-        listener.add_window_closed_handler(window_handler!(hyprtitle));
-        listener.add_window_moved_handler(window_handler!(hyprtitle));
-        listener.add_window_moved_into_group_handler(window_handler!(hyprtitle));
-        listener.add_window_moved_out_of_group_handler(window_handler!(hyprtitle));
-        listener.add_window_opened_handler(window_handler!(hyprtitle));
-        listener.add_window_pinned_handler(window_handler!(hyprtitle));
-        listener.add_window_title_changed_handler(window_handler!(hyprtitle));
+        listener.add_active_window_changed_handler(window_handler!());
+        listener.add_float_state_changed_handler(window_handler!());
+        listener.add_fullscreen_state_changed_handler(window_handler!());
+        listener.add_group_toggled_handler(window_handler!());
+        listener.add_window_closed_handler(window_handler!());
+        listener.add_window_moved_handler(window_handler!());
+        listener.add_window_moved_into_group_handler(window_handler!());
+        listener.add_window_moved_out_of_group_handler(window_handler!());
+        listener.add_window_opened_handler(window_handler!());
+        listener.add_window_pinned_handler(window_handler!());
+        listener.add_window_title_changed_handler(window_handler!());
 
         hyprtitle.borrow_mut().update(None).print();
         listener.start_listener().unwrap();
